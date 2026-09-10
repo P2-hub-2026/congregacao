@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Territórios — Gestão de Mapas</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1b3a3f" />
+
+<!-- Leaflet (mapa) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet.draw (editar polígonos) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <span class="brand-name">Territórios</span>
+  </div>
+  <div class="topbar-stats" id="topbarStats">
+    <span class="stat"><b id="statTotal">0</b> total</span>
+    <span class="stat stat-disponivel"><b id="statDisponivel">0</b> disponíveis</span>
+    <span class="stat stat-iniciado"><b id="statIniciado">0</b> em campo</span>
+    <span class="stat stat-concluido"><b id="statConcluido">0</b> concluídos</span>
+  </div>
+  <button id="btnImportGeoJSON" class="btn-ghost" title="Importar polígonos reais de data/territorios-import.geojson">Importar GeoJSON</button>
+  <button id="btnSeed" class="btn-ghost" title="Gerar territórios placeholder em grade (só se ainda não tiver nenhum)">Gerar placeholders</button>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-controls">
+      <input id="searchBox" type="text" placeholder="Buscar por código… (jrdTer01)" />
+
+      <label class="field-label">Grupo</label>
+      <select id="filterGrupo">
+        <option value="">Todos os grupos</option>
+      </select>
+
+      <label class="field-label">Fase</label>
+      <select id="filterStatus">
+        <option value="">Todas as fases</option>
+        <option value="disponivel">Disponível</option>
+        <option value="iniciado">Iniciado</option>
+        <option value="concluido">Concluído</option>
+      </select>
+    </div>
+
+    <ul id="territoryList" class="territory-list"></ul>
+  </aside>
+
+  <main class="map-wrap">
+    <div id="map"></div>
+  </main>
+
+  <aside id="detailPanel" class="detail-panel hidden">
+    <button id="closeDetail" class="btn-close" aria-label="Fechar">×</button>
+    <h2 id="detailCode">—</h2>
+    <span id="detailStatusBadge" class="badge">—</span>
+
+    <div class="detail-block">
+      <label class="field-label">Grupo</label>
+      <select id="detailGrupoSelect"></select>
+    </div>
+
+    <div class="detail-block">
+      <button id="btnOpenMaps" class="btn-primary">🗺️ Abrir no Maps</button>
+    </div>
+
+    <div class="detail-block phase-actions">
+      <div class="phase-row" id="phaseIniciar">
+        <h3>Iniciar</h3>
+        <input type="text" id="inpRespIniciar" placeholder="Responsável" />
+        <input type="date" id="inpDataIniciar" />
+        <button class="btn-action" id="btnIniciar">Marcar como iniciado</button>
+      </div>
+
+      <div class="phase-row" id="phaseConcluir">
+        <h3>Concluir</h3>
+        <input type="text" id="inpRespConcluir" placeholder="Responsável" />
+        <input type="date" id="inpDataConcluir" />
+        <button class="btn-action" id="btnConcluir">Marcar como concluído</button>
+      </div>
+
+      <div class="phase-row" id="phaseLiberar">
+        <h3>Liberar</h3>
+        <p class="hint">Libera o território de volta para "disponível" e mantém o histórico.</p>
+        <button class="btn-action btn-liberar" id="btnLiberar">Liberar território</button>
+      </div>
+    </div>
+
+    <div class="detail-block">
+      <label class="field-label">Observações</label>
+      <textarea id="inpObservacoes" rows="3" placeholder="Notas sobre este território…"></textarea>
+      <button class="btn-ghost" id="btnSalvarObs">Salvar observações</button>
+    </div>
+
+    <div class="detail-block">
+      <button class="btn-ghost" id="btnEditarPoligono">✎ Editar contorno no mapa</button>
+    </div>
+
+    <div class="detail-block">
+      <label class="field-label">Histórico</label>
+      <ul id="detailHistorico" class="historico-list"></ul>
+    </div>
+  </aside>
+
+</div>
+
+<!-- Firebase (compat SDK — sem bundler, direto no navegador) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/seed.js"></script>
+<script src="js/import-geojson.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

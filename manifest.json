@@ -1,0 +1,9 @@
+{
+  "name": "Territórios — Gestão de Mapas",
+  "short_name": "Territórios",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f6f5",
+  "theme_color": "#1b3a3f",
+  "icons": []
+}
