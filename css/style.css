@@ -99,6 +99,7 @@ html,body{height:100%;margin:0;background:var(--paper);color:var(--ink);}
 .territory-list li.active{background:var(--concluido-bg);}
 .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .dot.disponivel{background:var(--disponivel);}
+.dot.designado{background:#e67e22;}
 .dot.iniciado{background:var(--iniciado);}
 .dot.concluido{background:var(--concluido);}
 .li-code{font-weight:600;}
@@ -118,13 +119,41 @@ html,body{height:100%;margin:0;background:var(--paper);color:var(--ink);}
   box-shadow:-6px 0 18px rgba(0,0,0,.06);
 }
 .detail-panel.hidden{display:none;}
+.detail-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .btn-close{position:absolute;top:10px;right:12px;border:none;background:none;font-size:1.4rem;line-height:1;cursor:pointer;color:#8a9694;}
-#detailCode{margin:4px 0 8px;font-size:1.3rem;}
+#detailCode{margin:0;font-size:1.3rem;}
 
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;margin-bottom:14px;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.3px;}
 .badge.disponivel{background:var(--disponivel-bg);color:var(--disponivel);}
-.badge.iniciado{background:var(--iniciado-bg);color:var(--iniciado);}
+.badge.designado{background:#fbe4cf;color:#c15f0b;}
+.badge.iniciado{background:var(--iniciado-bg);color:#a3820a;}
 .badge.concluido{background:var(--concluido-bg);color:var(--concluido);}
+
+.detail-info-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;
+  margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line);
+}
+.detail-info-grid b{display:block;color:#6b7a78;font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;}
+.detail-info-grid span{font-size:.85rem;}
+.inline-select{
+  width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:.82rem;background:#fff;
+}
+
+.btn-row{display:flex;gap:6px;margin-bottom:10px;}
+.btn-fase{
+  flex:1;padding:10px 4px;border:none;border-radius:8px;color:#fff;font-size:.74rem;font-weight:600;cursor:pointer;
+  line-height:1.2;opacity:.88;
+}
+.btn-fase:hover{opacity:1;}
+.btn-fase-ativo{opacity:1;box-shadow:0 0 0 2px rgba(0,0,0,.12) inset;}
+
+.btn-designar{background:#e67e22;}
+.btn-em-campo{background:#e8b710;color:#3a2c00;}
+.btn-concluir-fase{background:#2f6fb0;}
+.btn-liberar-fase{background:#7f8c8d;}
+.btn-ver-maps{background:#27ae60;}
+.btn-rota{background:#4a90d9;}
+.btn-marcar-ponto{background:#8e44ad;}
 
 .detail-block{margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--line);}
 .detail-block:last-child{border-bottom:none;}
@@ -140,16 +169,21 @@ html,body{height:100%;margin:0;background:var(--paper);color:var(--ink);}
 }
 .btn-primary:hover{background:var(--brand-light);}
 
-.phase-row{margin-bottom:16px;}
-.phase-row h3{margin:0 0 6px;font-size:.9rem;color:var(--brand);}
-.phase-row input{width:100%;padding:7px 9px;margin-bottom:6px;border:1px solid var(--line);border-radius:7px;font-size:.83rem;}
 .hint{font-size:.78rem;color:#6b7a78;margin:0 0 8px;}
 .btn-action{
-  width:100%;padding:8px;border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:7px;font-size:.83rem;cursor:pointer;
+  padding:8px 12px;border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:7px;font-size:.83rem;cursor:pointer;
 }
 .btn-action:hover{background:var(--brand);color:#fff;}
-.btn-liberar{border-color:var(--iniciado);color:var(--iniciado);}
-.btn-liberar:hover{background:var(--iniciado);color:#fff;}
+
+.pontos-list{list-style:none;margin:8px 0 0;padding:0;}
+.ponto-item{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;font-size:.8rem;
+}
+.ponto-nota{flex:1;word-break:break-word;}
+.ponto-acoes{display:flex;gap:4px;flex-shrink:0;}
+.ponto-acoes button{background:none;border:none;cursor:pointer;font-size:.95rem;padding:2px 4px;}
+.pontos-empty{color:#8a9694;font-size:.8rem;padding:10px;background:#fff;border:1px dashed var(--line);border-radius:8px;list-style:none;}
 
 .historico-list{list-style:none;margin:6px 0 0;padding:0;font-size:.8rem;color:#4a5654;}
 .historico-list li{padding:6px 0;border-bottom:1px dashed var(--line);}

@@ -6,14 +6,16 @@ const BASE_LAT = -23.5505;
 const BASE_LNG = -46.6333;
 
 const STATUS_LABEL = {
-  disponivel: "Disponível",
-  iniciado: "Iniciado",
+  disponivel: "Livre",
+  designado: "Designado",
+  iniciado: "Em Campo",
   concluido: "Concluído"
 };
 
 const STATUS_COLOR = {
   disponivel: "#3f8f5f",
-  iniciado: "#c47f17",
+  designado: "#e67e22",
+  iniciado: "#e8b710",
   concluido: "#2f6fb0"
 };
 
@@ -23,7 +25,6 @@ let map;
 let layerGroup;
 let drawnEditLayer = null;
 let drawControl = null;
-let pontoMarkerLayer = null;
 let modoMarcarPonto = false;
 
 let territorios = {};   // codigo -> dado
@@ -115,6 +116,67 @@ function escutarHistorico(codigo) {
     });
 }
 
+let pontosUnsub = null;
+let pontosAtuais = []; // cache dos pontos do território aberto, pra "Rota até Território" usar o mais recente
+
+function escutarPontos(codigo) {
+  if (pontosUnsub) pontosUnsub();
+  pontosUnsub = db
+    .collection("territorios")
+    .doc(codigo)
+    .collection("pontos")
+    .orderBy("criadoEm", "desc")
+    .onSnapshot((snap) => {
+      pontosAtuais = [];
+      snap.forEach((doc) => pontosAtuais.push({ id: doc.id, ...doc.data() }));
+      renderPontosList();
+    });
+}
+
+function renderPontosList() {
+  const ul = document.getElementById("detailPontosList");
+  const countEl = document.getElementById("detailPontosCount");
+  countEl.textContent = pontosAtuais.length;
+
+  if (!pontosAtuais.length) {
+    ul.innerHTML = '<li class="pontos-empty">Nenhum ponto registrado.</li>';
+    atualizarMarcadoresPontos();
+    return;
+  }
+
+  ul.innerHTML = "";
+  pontosAtuais.forEach((p) => {
+    const li = document.createElement("li");
+    li.className = "ponto-item";
+    li.innerHTML = `
+      <span class="ponto-nota">${p.nota ? p.nota : "(sem nota)"}</span>
+      <span class="ponto-acoes">
+        <button class="ponto-rota" title="Traçar rota até este ponto" data-lat="${p.lat}" data-lng="${p.lng}">🧭</button>
+        <button class="ponto-excluir" title="Excluir ponto" data-id="${p.id}">🗑</button>
+      </span>
+    `;
+    ul.appendChild(li);
+  });
+
+  ul.querySelectorAll(".ponto-rota").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${btn.dataset.lat},${btn.dataset.lng}`;
+      window.open(url, "_blank");
+    });
+  });
+  ul.querySelectorAll(".ponto-excluir").forEach((btn) => {
+    btn.addEventListener("click", () => excluirPonto(btn.dataset.id));
+  });
+
+  atualizarMarcadoresPontos();
+}
+
+async function excluirPonto(pontoId) {
+  if (!selecionado) return;
+  if (!confirm("Excluir este ponto?")) return;
+  await db.collection("territorios").doc(selecionado).collection("pontos").doc(pontoId).delete();
+}
+
 // ---------- RENDER ----------
 
 function renderTudo() {
@@ -123,7 +185,6 @@ function renderTudo() {
   renderLista();
   if (selecionado) {
     renderPainelDetalhe(selecionado);
-    atualizarMarcadorReferencia();
   }
 }
 
@@ -343,10 +404,20 @@ function abrirDetalhe(codigo) {
   renderPainelDetalhe(codigo);
   renderMapa();
   escutarHistorico(codigo);
-  atualizarMarcadorReferencia();
+  escutarPontos(codigo);
 
+  centralizarNoMapa(codigo);
+}
+
+function centralizarNoMapa(codigo) {
   const poly = poligonosLayer[codigo];
   if (poly) map.fitBounds(poly.getBounds(), { maxZoom: 18, padding: [40, 40] });
+}
+
+function formatarData(str) {
+  if (!str) return "--/--/----";
+  const [y, m, d] = str.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 function renderPainelDetalhe(codigo) {
@@ -356,7 +427,7 @@ function renderPainelDetalhe(codigo) {
   document.getElementById("detailCode").textContent = t.codigo;
 
   const badge = document.getElementById("detailStatusBadge");
-  badge.textContent = STATUS_LABEL[t.status];
+  badge.textContent = STATUS_LABEL[t.status].toUpperCase();
   badge.className = "badge " + t.status;
 
   document.getElementById("detailCongregacaoSelect").value = t.congregacaoId || "";
@@ -364,33 +435,30 @@ function renderPainelDetalhe(codigo) {
   document.getElementById("detailPublicadorSelect").value = t.publicadorId || "";
   document.getElementById("inpObservacoes").value = t.observacoes || "";
 
-  const infoP = document.getElementById("pontoRefInfo");
-  if (t.pontoReferencia) {
-    infoP.textContent = `Coordenada marcada: ${t.pontoReferencia.lat.toFixed(5)}, ${t.pontoReferencia.lng.toFixed(5)} — a rota vai até esse ponto exato.`;
-    document.getElementById("btnOpenMaps").textContent = "🗺️ Traçar rota até o ponto marcado";
-  } else {
-    infoP.textContent = "Nenhuma coordenada marcada ainda — a rota vai até o centro do território.";
-    document.getElementById("btnOpenMaps").textContent = "🗺️ Traçar rota até o território";
-  }
+  document.getElementById("detailDataSaida").textContent = formatarData(t.dataInicio);
+  document.getElementById("detailUltimaConclusao").textContent = formatarData(t.ultimaConclusao);
 
-  // mostra só a ação relevante pra fase atual
-  document.getElementById("phaseIniciar").style.display = t.status === "disponivel" ? "block" : "none";
-  document.getElementById("phaseConcluir").style.display = t.status === "iniciado" ? "block" : "none";
-  document.getElementById("phaseLiberar").style.display = t.status === "concluido" ? "block" : "none";
-
-  const hoje = new Date().toISOString().slice(0, 10);
-  document.getElementById("inpDataIniciar").value = hoje;
-  document.getElementById("inpDataConcluir").value = hoje;
+  // habilita/realça só os botões de fase que fazem sentido no status atual
+  const botoesFase = {
+    disponivel: "btnDesignar",
+    designado: "btnEmCampo",
+    iniciado: "btnConcluir",
+    concluido: "btnLiberar"
+  };
+  ["btnDesignar", "btnEmCampo", "btnConcluir", "btnLiberar"].forEach((id) => {
+    document.getElementById(id).classList.toggle("btn-fase-ativo", id === botoesFase[t.status]);
+  });
 }
 
 function fecharDetalhe() {
   selecionado = null;
   document.getElementById("detailPanel").classList.add("hidden");
   if (historicoUnsub) historicoUnsub();
+  if (pontosUnsub) pontosUnsub();
   renderMapa();
   sairModoEdicao();
   modoMarcarPonto = false;
-  if (pontoMarkerLayer) { map.removeLayer(pontoMarkerLayer); pontoMarkerLayer = null; }
+  limparMarcadoresPontos();
 }
 
 // ---------- AÇÕES DE FASE ----------
@@ -403,38 +471,91 @@ async function registrarHistorico(codigo, evento, responsavel, data) {
   });
 }
 
-async function marcarIniciado() {
-  const resp = document.getElementById("inpRespIniciar").value.trim();
-  const data = document.getElementById("inpDataIniciar").value;
-  if (!resp) return alert("Informe o responsável.");
+async function obterOuCriarPublicador(nome) {
+  const existente = Object.values(publicadores).find(
+    (p) => p.nome.toLowerCase() === nome.toLowerCase()
+  );
+  if (existente) return existente.id;
+  const ref = await db.collection("publicadores").add({ nome });
+  return ref.id;
+}
+
+async function marcarDesignado() {
+  const t = territorios[selecionado];
+  if (!t) return;
+
+  let publicadorId = document.getElementById("detailPublicadorSelect").value;
+  let nomePublicador;
+  if (publicadorId && publicadores[publicadorId]) {
+    nomePublicador = publicadores[publicadorId].nome;
+  } else {
+    const nome = prompt("Designar a quem? (nome do publicador/dupla)");
+    if (!nome || !nome.trim()) return;
+    nomePublicador = nome.trim();
+    publicadorId = await obterOuCriarPublicador(nomePublicador);
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  await db.collection("territorios").doc(selecionado).update({
+    status: "designado",
+    publicadorId,
+    atualizadoEm: new Date().toISOString()
+  });
+  await registrarHistorico(selecionado, "Designado", nomePublicador, hoje);
+}
+
+async function marcarEmCampo() {
+  const t = territorios[selecionado];
+  if (!t) return;
+
+  let respNome = t.publicadorId && publicadores[t.publicadorId] ? publicadores[t.publicadorId].nome : null;
+  if (!respNome) {
+    const nome = prompt("Quem está levando este território a campo? (responsável)");
+    if (!nome || !nome.trim()) return;
+    respNome = nome.trim();
+  }
+  const hoje = new Date().toISOString().slice(0, 10);
+  const dataStr = prompt("Data de saída (AAAA-MM-DD):", hoje);
+  if (!dataStr) return;
 
   await db.collection("territorios").doc(selecionado).update({
     status: "iniciado",
-    responsavelInicio: resp,
-    dataInicio: data,
+    responsavelInicio: respNome,
+    dataInicio: dataStr,
     atualizadoEm: new Date().toISOString()
   });
-  await registrarHistorico(selecionado, "Iniciado", resp, data);
+  await registrarHistorico(selecionado, "Em Campo", respNome, dataStr);
 }
 
 async function marcarConcluido() {
-  const resp = document.getElementById("inpRespConcluir").value.trim();
-  const data = document.getElementById("inpDataConcluir").value;
-  if (!resp) return alert("Informe o responsável.");
+  const t = territorios[selecionado];
+  if (!t) return;
+
+  let respNome = t.responsavelInicio;
+  if (!respNome) {
+    const nome = prompt("Responsável pela conclusão:");
+    if (!nome || !nome.trim()) return;
+    respNome = nome.trim();
+  }
+  const hoje = new Date().toISOString().slice(0, 10);
+  const dataStr = prompt("Data de conclusão (AAAA-MM-DD):", hoje);
+  if (!dataStr) return;
 
   await db.collection("territorios").doc(selecionado).update({
     status: "concluido",
-    responsavelConclusao: resp,
-    dataConclusao: data,
+    responsavelConclusao: respNome,
+    dataConclusao: dataStr,
+    ultimaConclusao: dataStr,
     atualizadoEm: new Date().toISOString()
   });
-  await registrarHistorico(selecionado, "Concluído", resp, data);
+  await registrarHistorico(selecionado, "Concluído", respNome, dataStr);
 }
 
 async function liberarTerritorio() {
   const hoje = new Date().toISOString().slice(0, 10);
   await db.collection("territorios").doc(selecionado).update({
     status: "disponivel",
+    publicadorId: null,
     responsavelInicio: null,
     dataInicio: null,
     responsavelConclusao: null,
@@ -460,17 +581,7 @@ async function cadastrarPublicador() {
   const nome = input.value.trim();
   if (!nome) return;
 
-  // evita duplicar nome já existente (case-insensitive)
-  const existente = Object.values(publicadores).find(
-    (p) => p.nome.toLowerCase() === nome.toLowerCase()
-  );
-  let publicadorId;
-  if (existente) {
-    publicadorId = existente.id;
-  } else {
-    const ref = await db.collection("publicadores").add({ nome });
-    publicadorId = ref.id;
-  }
+  const publicadorId = await obterOuCriarPublicador(nome);
 
   input.value = "";
   if (selecionado) {
@@ -509,14 +620,15 @@ function centroide(poligono) {
   return [latSum / pontos.length, lngSum / pontos.length];
 }
 
+// "Rota até Território": usa o ponto marcado mais recente, senão o centro do polígono
 function abrirNoMaps() {
   const t = territorios[selecionado];
   if (!t) return;
 
   let lat, lng;
-  if (t.pontoReferencia) {
-    lat = t.pontoReferencia.lat;
-    lng = t.pontoReferencia.lng;
+  if (pontosAtuais.length) {
+    lat = pontosAtuais[0].lat; // mais recente (orderBy criadoEm desc)
+    lng = pontosAtuais[0].lng;
   } else if (t.poligono) {
     [lat, lng] = centroide(t.poligono);
   } else {
@@ -527,36 +639,48 @@ function abrirNoMaps() {
   window.open(url, "_blank");
 }
 
-function atualizarMarcadorReferencia() {
-  if (pontoMarkerLayer) {
-    map.removeLayer(pontoMarkerLayer);
-    pontoMarkerLayer = null;
-  }
-  const t = territorios[selecionado];
-  if (t && t.pontoReferencia) {
-    pontoMarkerLayer = L.marker([t.pontoReferencia.lat, t.pontoReferencia.lng], {
-      title: "Coordenada de referência para rota"
-    }).addTo(map);
-  }
+// "Ver no Maps": centraliza/realça o território dentro do nosso próprio mapa
+function verNoMapaInterno() {
+  if (!selecionado) return;
+  centralizarNoMapa(selecionado);
+}
+
+let marcadoresPontosLayer = [];
+
+function limparMarcadoresPontos() {
+  marcadoresPontosLayer.forEach((m) => map.removeLayer(m));
+  marcadoresPontosLayer = [];
+}
+
+function atualizarMarcadoresPontos() {
+  limparMarcadoresPontos();
+  pontosAtuais.forEach((p) => {
+    const m = L.marker([p.lat, p.lng], { title: p.nota || "Ponto marcado" }).addTo(map);
+    if (p.nota) m.bindTooltip(p.nota, { direction: "top" });
+    marcadoresPontosLayer.push(m);
+  });
 }
 
 function iniciarMarcacaoPonto() {
   if (!selecionado) return;
   modoMarcarPonto = true;
-  alert('Modo de marcação ativado: clique em qualquer ponto do mapa (dentro do território, num endereço específico, etc.) para salvar como coordenada de referência.');
+  alert("Modo de marcação ativado: clique em qualquer ponto do mapa (um endereço, uma referência) para registrar. Você poderá adicionar uma nota em seguida.");
 
   const handler = async (e) => {
     if (!modoMarcarPonto) return;
     modoMarcarPonto = false;
-    const ponto = { lat: e.latlng.lat, lng: e.latlng.lng };
-    await db.collection("territorios").doc(selecionado).update({ pontoReferencia: ponto });
+
+    const nota = prompt("Nota para este ponto (endereço, observação — pode deixar em branco):", "");
+    if (nota === null) return; // usuário cancelou
+
+    await db.collection("territorios").doc(selecionado).collection("pontos").add({
+      lat: e.latlng.lat,
+      lng: e.latlng.lng,
+      nota: nota.trim(),
+      criadoEm: new Date().toISOString()
+    });
   };
   map.once("click", handler);
-}
-
-async function removerPontoReferencia() {
-  if (!selecionado) return;
-  await db.collection("territorios").doc(selecionado).update({ pontoReferencia: null });
 }
 
 // ---------- EDITAR CONTORNO ----------
@@ -634,10 +758,11 @@ function ligarEventos() {
     if (e.key === "Enter") cadastrarPublicador();
   });
   document.getElementById("btnSalvarObs").addEventListener("click", salvarObservacoes);
+  document.getElementById("btnVerNoMaps").addEventListener("click", verNoMapaInterno);
   document.getElementById("btnOpenMaps").addEventListener("click", abrirNoMaps);
   document.getElementById("btnMarcarPonto").addEventListener("click", iniciarMarcacaoPonto);
-  document.getElementById("btnRemoverPonto").addEventListener("click", removerPontoReferencia);
-  document.getElementById("btnIniciar").addEventListener("click", marcarIniciado);
+  document.getElementById("btnDesignar").addEventListener("click", marcarDesignado);
+  document.getElementById("btnEmCampo").addEventListener("click", marcarEmCampo);
   document.getElementById("btnConcluir").addEventListener("click", marcarConcluido);
   document.getElementById("btnLiberar").addEventListener("click", liberarTerritorio);
   document.getElementById("btnEditarPoligono").addEventListener("click", entrarModoEdicao);

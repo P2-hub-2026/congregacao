@@ -84,12 +84,12 @@ async function rodarSeed() {
       grupoId: null,
       publicadorId: null,
       poligono: gerarPoligonoGrade(i - 1),
-      pontoReferencia: null,
       status: "disponivel",
       responsavelInicio: null,
       dataInicio: null,
       responsavelConclusao: null,
       dataConclusao: null,
+      ultimaConclusao: null,
       dataLiberacao: null,
       observacoes: "",
       atualizadoEm: new Date().toISOString()

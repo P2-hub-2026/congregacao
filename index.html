@@ -57,8 +57,9 @@
       <label class="field-label">Fase</label>
       <select id="filterStatus">
         <option value="">Todas as fases</option>
-        <option value="disponivel">Disponível</option>
-        <option value="iniciado">Iniciado</option>
+        <option value="disponivel">Livre</option>
+        <option value="designado">Designado</option>
+        <option value="iniciado">Em Campo</option>
         <option value="concluido">Concluído</option>
       </select>
 
@@ -87,59 +88,48 @@
 
   <aside id="detailPanel" class="detail-panel hidden">
     <button id="closeDetail" class="btn-close" aria-label="Fechar">×</button>
-    <h2 id="detailCode">—</h2>
-    <span id="detailStatusBadge" class="badge">—</span>
 
-    <div class="detail-block">
-      <label class="field-label">Congregação</label>
-      <select id="detailCongregacaoSelect"></select>
+    <div class="detail-title-row">
+      <h2 id="detailCode">—</h2>
+      <span id="detailStatusBadge" class="badge">—</span>
+    </div>
+
+    <div class="detail-info-grid">
+      <div><b>Congregação</b><select id="detailCongregacaoSelect" class="inline-select"></select></div>
+      <div><b>Designado a</b><select id="detailPublicadorSelect" class="inline-select"></select></div>
+
+      <div><b>Grupo</b><select id="detailGrupoSelect" class="inline-select"></select></div>
+      <div><b>Pontos registrados</b><span id="detailPontosCount">0</span></div>
+
+      <div><b>Data de saída</b><span id="detailDataSaida">--/--/----</span></div>
+      <div><b>Última conclusão</b><span id="detailUltimaConclusao">--/--/----</span></div>
+    </div>
+
+    <div class="add-publicador-row detail-block">
+      <input type="text" id="inpNovoPublicador" placeholder="Cadastrar novo publicador…" />
+      <button id="btnAddPublicador" class="btn-ghost btn-add-pub">+</button>
+    </div>
+
+    <div class="btn-row">
+      <button id="btnDesignar" class="btn-fase btn-designar">📋 Designar</button>
+      <button id="btnEmCampo" class="btn-fase btn-em-campo">🚶 Em Campo</button>
+      <button id="btnConcluir" class="btn-fase btn-concluir-fase">✅ Concluir</button>
+      <button id="btnLiberar" class="btn-fase btn-liberar-fase">🔓 Liberar</button>
+    </div>
+
+    <div class="btn-row">
+      <button id="btnVerNoMaps" class="btn-fase btn-ver-maps">🗺️ Ver no Maps</button>
+      <button id="btnOpenMaps" class="btn-fase btn-rota">🚗 Rota até Território</button>
+      <button id="btnMarcarPonto" class="btn-fase btn-marcar-ponto">📍 Marcar Ponto</button>
+    </div>
+
+    <div class="detail-block pontos-section">
+      <label class="field-label">Pontos &amp; notas do território</label>
+      <ul id="detailPontosList" class="pontos-list"></ul>
     </div>
 
     <div class="detail-block">
-      <label class="field-label">Grupo</label>
-      <select id="detailGrupoSelect"></select>
-    </div>
-
-    <div class="detail-block">
-      <label class="field-label">Publicador designado</label>
-      <select id="detailPublicadorSelect"></select>
-      <div class="add-publicador-row">
-        <input type="text" id="inpNovoPublicador" placeholder="Cadastrar novo nome…" />
-        <button id="btnAddPublicador" class="btn-ghost btn-add-pub">+</button>
-      </div>
-    </div>
-
-    <div class="detail-block">
-      <button id="btnOpenMaps" class="btn-primary">🗺️ Traçar rota</button>
-      <button id="btnMarcarPonto" class="btn-ghost">📍 Marcar coordenada no mapa</button>
-      <button id="btnRemoverPonto" class="btn-ghost">✕ Remover coordenada marcada</button>
-      <p class="hint" id="pontoRefInfo">Nenhuma coordenada marcada ainda — a rota vai até o centro do território.</p>
-    </div>
-
-    <div class="detail-block phase-actions">
-      <div class="phase-row" id="phaseIniciar">
-        <h3>Iniciar</h3>
-        <input type="text" id="inpRespIniciar" placeholder="Responsável" />
-        <input type="date" id="inpDataIniciar" />
-        <button class="btn-action" id="btnIniciar">Marcar como iniciado</button>
-      </div>
-
-      <div class="phase-row" id="phaseConcluir">
-        <h3>Concluir</h3>
-        <input type="text" id="inpRespConcluir" placeholder="Responsável" />
-        <input type="date" id="inpDataConcluir" />
-        <button class="btn-action" id="btnConcluir">Marcar como concluído</button>
-      </div>
-
-      <div class="phase-row" id="phaseLiberar">
-        <h3>Liberar</h3>
-        <p class="hint">Libera o território de volta para "disponível" e mantém o histórico.</p>
-        <button class="btn-action btn-liberar" id="btnLiberar">Liberar território</button>
-      </div>
-    </div>
-
-    <div class="detail-block">
-      <label class="field-label">Observações</label>
+      <label class="field-label">Observações gerais</label>
       <textarea id="inpObservacoes" rows="3" placeholder="Notas sobre este território…"></textarea>
       <button class="btn-ghost" id="btnSalvarObs">Salvar observações</button>
     </div>
