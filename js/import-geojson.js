@@ -13,10 +13,9 @@
 // ============================================================
 
 function limparAnel(coordenadas) {
-  // O GeoJSON exportado traz [lng, lat, altitude]. O Firestore não aceita
-  // array dentro de array ("nested arrays"), então guardamos cada ponto
-  // como objeto {lat, lng} em vez de [lng, lat].
-  return coordenadas.map(([lng, lat]) => ({ lat, lng }));
+  // O GeoJSON exportado traz [lng, lat, altitude] — o app só
+  // usa [lng, lat], então descartamos o terceiro valor.
+  return coordenadas.map(([lng, lat]) => [lng, lat]);
 }
 
 async function rodarImportGeoJSON() {
@@ -63,8 +62,11 @@ async function rodarImportGeoJSON() {
     } else {
       batch.set(ref, {
         codigo,
+        congregacaoId: null,
         grupoId: null,
+        publicadorId: null,
         poligono,
+        pontoReferencia: null,
         status: "disponivel",
         responsavelInicio: null,
         dataInicio: null,

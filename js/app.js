@@ -2,9 +2,8 @@
 // APP.JS — lógica principal
 // ============================================================
 
-// BASE_LAT e BASE_LNG já são declarados em js/seed.js (carregado antes
-// deste arquivo no index.html) — não redeclarar aqui, senão o navegador
-// lança "Identifier already declared" e o app.js inteiro para de rodar.
+const BASE_LAT = -23.5505;
+const BASE_LNG = -46.6333;
 
 const STATUS_LABEL = {
   disponivel: "Disponível",
@@ -18,26 +17,35 @@ const STATUS_COLOR = {
   concluido: "#2f6fb0"
 };
 
+const DIAS_LIMITE_ATRASO = 90; // dias parado em "disponível" pra contar como atrasado
+
 let map;
 let layerGroup;
 let drawnEditLayer = null;
 let drawControl = null;
+let pontoMarkerLayer = null;
+let modoMarcarPonto = false;
 
 let territorios = {};   // codigo -> dado
 let poligonosLayer = {}; // codigo -> layer leaflet
 let grupos = {};        // id -> dado
+let publicadores = {};  // id -> dado
+let congregacoes = {};  // id -> dado
 
-let filtro = { busca: "", grupoId: "", status: "" };
+let filtro = { busca: "", grupoId: "", status: "", publicadorId: "", congregacaoId: "" };
 let selecionado = null; // codigo do território aberto no painel
 let historicoUnsub = null;
 let primeiroCarregamento = true;
+let selecionados = new Set(); // códigos marcados para ação em lote
 
 // ---------- INIT ----------
 
 document.addEventListener("DOMContentLoaded", () => {
   initMap();
   ligarEventos();
+  escutarCongregacoes();
   escutarGrupos();
+  escutarPublicadores();
   escutarTerritorios();
 });
 
@@ -52,11 +60,27 @@ function initMap() {
 
 // ---------- FIRESTORE LISTENERS ----------
 
+function escutarCongregacoes() {
+  db.collection("congregacoes").onSnapshot((snap) => {
+    congregacoes = {};
+    snap.forEach((doc) => (congregacoes[doc.id] = { id: doc.id, ...doc.data() }));
+    popularSelectCongregacoes();
+  });
+}
+
 function escutarGrupos() {
   db.collection("grupos").onSnapshot((snap) => {
     grupos = {};
     snap.forEach((doc) => (grupos[doc.id] = { id: doc.id, ...doc.data() }));
     popularSelectGrupos();
+  });
+}
+
+function escutarPublicadores() {
+  db.collection("publicadores").onSnapshot((snap) => {
+    publicadores = {};
+    snap.forEach((doc) => (publicadores[doc.id] = { id: doc.id, ...doc.data() }));
+    popularSelectPublicadores();
   });
 }
 
@@ -97,7 +121,18 @@ function renderTudo() {
   renderStats();
   renderMapa();
   renderLista();
-  if (selecionado) renderPainelDetalhe(selecionado);
+  if (selecionado) {
+    renderPainelDetalhe(selecionado);
+    atualizarMarcadorReferencia();
+  }
+}
+
+function diasParado(t) {
+  if (t.status !== "disponivel") return null;
+  const base = t.dataLiberacao || (t.atualizadoEm ? t.atualizadoEm.slice(0, 10) : null);
+  if (!base) return null;
+  const ms = Date.now() - new Date(base + "T00:00:00").getTime();
+  return Math.floor(ms / 86400000);
 }
 
 function renderStats() {
@@ -106,6 +141,13 @@ function renderStats() {
   document.getElementById("statDisponivel").textContent = vals.filter((t) => t.status === "disponivel").length;
   document.getElementById("statIniciado").textContent = vals.filter((t) => t.status === "iniciado").length;
   document.getElementById("statConcluido").textContent = vals.filter((t) => t.status === "concluido").length;
+
+  const atrasados = vals.filter((t) => {
+    const d = diasParado(t);
+    return d !== null && d > DIAS_LIMITE_ATRASO;
+  }).length;
+  const elAtrasado = document.getElementById("statAtrasado");
+  if (elAtrasado) elAtrasado.textContent = atrasados;
 }
 
 function territoriosFiltrados() {
@@ -113,6 +155,8 @@ function territoriosFiltrados() {
     if (filtro.busca && !t.codigo.toLowerCase().includes(filtro.busca.toLowerCase())) return false;
     if (filtro.grupoId && t.grupoId !== filtro.grupoId) return false;
     if (filtro.status && t.status !== filtro.status) return false;
+    if (filtro.publicadorId && t.publicadorId !== filtro.publicadorId) return false;
+    if (filtro.congregacaoId && t.congregacaoId !== filtro.congregacaoId) return false;
     return true;
   });
 }
@@ -123,7 +167,7 @@ function renderMapa() {
 
   Object.values(territorios).forEach((t) => {
     if (!t.poligono || !t.poligono.length) return;
-    const latlngs = t.poligono.map((p) => [p.lat, p.lng]);
+    const latlngs = t.poligono.map(([lng, lat]) => [lat, lng]);
     const emFiltro = territoriosFiltrados().some((f) => f.codigo === t.codigo);
 
     const poly = L.polygon(latlngs, {
@@ -152,31 +196,140 @@ function renderLista() {
 
   lista.forEach((t) => {
     const li = document.createElement("li");
-    li.className = t.codigo === selecionado ? "active" : "";
+    const atrasado = (diasParado(t) || 0) > DIAS_LIMITE_ATRASO;
+    li.className = [t.codigo === selecionado ? "active" : "", atrasado ? "atrasado" : ""].join(" ").trim();
     const grupoNome = t.grupoId && grupos[t.grupoId] ? grupos[t.grupoId].nome : "sem grupo";
+    const pubNome = t.publicadorId && publicadores[t.publicadorId] ? publicadores[t.publicadorId].nome : "";
     li.innerHTML = `
+      <input type="checkbox" data-codigo="${t.codigo}" ${selecionados.has(t.codigo) ? "checked" : ""} />
       <span class="dot ${t.status}"></span>
       <span class="li-code">${t.codigo}</span>
-      <span class="li-grupo">${grupoNome}</span>
+      ${atrasado ? '<span class="li-warn" title="Parado há mais de ' + DIAS_LIMITE_ATRASO + ' dias">⚠️</span>' : ""}
+      <span class="li-grupo">${pubNome ? pubNome : grupoNome}</span>
     `;
+    li.querySelector("input").addEventListener("click", (e) => e.stopPropagation());
+    li.querySelector("input").addEventListener("change", (e) => toggleSelecao(t.codigo, e.target.checked));
     li.addEventListener("click", () => abrirDetalhe(t.codigo));
     ul.appendChild(li);
   });
+
+  renderBulkBar();
+}
+
+function toggleSelecao(codigo, marcado) {
+  if (marcado) selecionados.add(codigo);
+  else selecionados.delete(codigo);
+  renderBulkBar();
+}
+
+function renderBulkBar() {
+  const bar = document.getElementById("bulkBar");
+  const count = selecionados.size;
+  bar.classList.toggle("hidden", count === 0);
+  document.getElementById("bulkCount").textContent = `${count} selecionado${count === 1 ? "" : "s"}`;
+}
+
+function selecionarTodosFiltrados() {
+  territoriosFiltrados().forEach((t) => selecionados.add(t.codigo));
+  renderLista();
+}
+
+function limparSelecao() {
+  selecionados.clear();
+  renderLista();
+}
+
+async function aplicarGrupoEmLote() {
+  const grupoId = document.getElementById("bulkGrupoSelect").value || null;
+  if (!selecionados.size) return;
+  if (!confirm(`Aplicar este grupo a ${selecionados.size} território(s)?`)) return;
+
+  let batch = db.batch();
+  let ops = 0;
+  for (const codigo of selecionados) {
+    batch.update(db.collection("territorios").doc(codigo), { grupoId });
+    ops++;
+    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
+  }
+  await batch.commit();
+  limparSelecao();
 }
 
 function popularSelectGrupos() {
   const filterSel = document.getElementById("filterGrupo");
   const detailSel = document.getElementById("detailGrupoSelect");
+  const bulkSel = document.getElementById("bulkGrupoSelect");
   const valorAtualFiltro = filterSel.value;
   const valorAtualDetail = detailSel.value;
 
   filterSel.innerHTML = '<option value="">Todos os grupos</option>';
   detailSel.innerHTML = '<option value="">Sem grupo</option>';
+  bulkSel.innerHTML = '<option value="">Sem grupo</option>';
 
+  // Se uma congregação está selecionada no filtro, só mostra os grupos dela
+  const gruposVisiveis = Object.values(grupos).filter(
+    (g) => !filtro.congregacaoId || g.congregacaoId === filtro.congregacaoId
+  );
+
+  gruposVisiveis.forEach((g) => (filterSel.innerHTML += `<option value="${g.id}">${g.nome}</option>`));
   Object.values(grupos).forEach((g) => {
-    filterSel.innerHTML += `<option value="${g.id}">${g.nome}</option>`;
     detailSel.innerHTML += `<option value="${g.id}">${g.nome}</option>`;
+    bulkSel.innerHTML += `<option value="${g.id}">${g.nome}</option>`;
   });
+
+  filterSel.value = valorAtualFiltro;
+  detailSel.value = valorAtualDetail;
+}
+
+function popularSelectCongregacoes() {
+  const filterSel = document.getElementById("filterCongregacao");
+  const detailSel = document.getElementById("detailCongregacaoSelect");
+  const valorAtualFiltro = filterSel.value;
+  const valorAtualDetail = detailSel.value;
+
+  filterSel.innerHTML = '<option value="">Todas as congregações</option>';
+  detailSel.innerHTML = '<option value="">Sem congregação</option>';
+
+  Object.values(congregacoes)
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+    .forEach((c) => {
+      filterSel.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+      detailSel.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+    });
+
+  filterSel.value = valorAtualFiltro;
+  detailSel.value = valorAtualDetail;
+}
+
+async function cadastrarCongregacao() {
+  const nome = prompt("Nome da nova congregação:");
+  if (!nome || !nome.trim()) return;
+  await db.collection("congregacoes").add({ nome: nome.trim() });
+}
+
+async function salvarCongregacao() {
+  const congregacaoId = document.getElementById("detailCongregacaoSelect").value || null;
+  await db.collection("territorios").doc(selecionado).update({ congregacaoId });
+}
+
+function popularSelectPublicadores() {
+  const filterSel = document.getElementById("filterPublicador");
+  const detailSel = document.getElementById("detailPublicadorSelect");
+  const bulkSel = document.getElementById("bulkPublicadorSelect");
+  const valorAtualFiltro = filterSel.value;
+  const valorAtualDetail = detailSel.value;
+
+  filterSel.innerHTML = '<option value="">Todos os publicadores</option>';
+  detailSel.innerHTML = '<option value="">Sem publicador</option>';
+  bulkSel.innerHTML = '<option value="">Sem publicador</option>';
+
+  Object.values(publicadores)
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+    .forEach((p) => {
+      filterSel.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
+      detailSel.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
+      bulkSel.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
+    });
 
   filterSel.value = valorAtualFiltro;
   detailSel.value = valorAtualDetail;
@@ -190,6 +343,7 @@ function abrirDetalhe(codigo) {
   renderPainelDetalhe(codigo);
   renderMapa();
   escutarHistorico(codigo);
+  atualizarMarcadorReferencia();
 
   const poly = poligonosLayer[codigo];
   if (poly) map.fitBounds(poly.getBounds(), { maxZoom: 18, padding: [40, 40] });
@@ -205,8 +359,19 @@ function renderPainelDetalhe(codigo) {
   badge.textContent = STATUS_LABEL[t.status];
   badge.className = "badge " + t.status;
 
+  document.getElementById("detailCongregacaoSelect").value = t.congregacaoId || "";
   document.getElementById("detailGrupoSelect").value = t.grupoId || "";
+  document.getElementById("detailPublicadorSelect").value = t.publicadorId || "";
   document.getElementById("inpObservacoes").value = t.observacoes || "";
+
+  const infoP = document.getElementById("pontoRefInfo");
+  if (t.pontoReferencia) {
+    infoP.textContent = `Coordenada marcada: ${t.pontoReferencia.lat.toFixed(5)}, ${t.pontoReferencia.lng.toFixed(5)} — a rota vai até esse ponto exato.`;
+    document.getElementById("btnOpenMaps").textContent = "🗺️ Traçar rota até o ponto marcado";
+  } else {
+    infoP.textContent = "Nenhuma coordenada marcada ainda — a rota vai até o centro do território.";
+    document.getElementById("btnOpenMaps").textContent = "🗺️ Traçar rota até o território";
+  }
 
   // mostra só a ação relevante pra fase atual
   document.getElementById("phaseIniciar").style.display = t.status === "disponivel" ? "block" : "none";
@@ -224,6 +389,8 @@ function fecharDetalhe() {
   if (historicoUnsub) historicoUnsub();
   renderMapa();
   sairModoEdicao();
+  modoMarcarPonto = false;
+  if (pontoMarkerLayer) { map.removeLayer(pontoMarkerLayer); pontoMarkerLayer = null; }
 }
 
 // ---------- AÇÕES DE FASE ----------
@@ -283,6 +450,51 @@ async function salvarGrupo() {
   await db.collection("territorios").doc(selecionado).update({ grupoId });
 }
 
+async function salvarPublicador() {
+  const publicadorId = document.getElementById("detailPublicadorSelect").value || null;
+  await db.collection("territorios").doc(selecionado).update({ publicadorId });
+}
+
+async function cadastrarPublicador() {
+  const input = document.getElementById("inpNovoPublicador");
+  const nome = input.value.trim();
+  if (!nome) return;
+
+  // evita duplicar nome já existente (case-insensitive)
+  const existente = Object.values(publicadores).find(
+    (p) => p.nome.toLowerCase() === nome.toLowerCase()
+  );
+  let publicadorId;
+  if (existente) {
+    publicadorId = existente.id;
+  } else {
+    const ref = await db.collection("publicadores").add({ nome });
+    publicadorId = ref.id;
+  }
+
+  input.value = "";
+  if (selecionado) {
+    document.getElementById("detailPublicadorSelect").value = publicadorId;
+    await db.collection("territorios").doc(selecionado).update({ publicadorId });
+  }
+}
+
+async function aplicarPublicadorEmLote() {
+  const publicadorId = document.getElementById("bulkPublicadorSelect").value || null;
+  if (!selecionados.size) return;
+  if (!confirm(`Aplicar este publicador a ${selecionados.size} território(s)?`)) return;
+
+  let batch = db.batch();
+  let ops = 0;
+  for (const codigo of selecionados) {
+    batch.update(db.collection("territorios").doc(codigo), { publicadorId });
+    ops++;
+    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
+  }
+  await batch.commit();
+  limparSelecao();
+}
+
 async function salvarObservacoes() {
   const obs = document.getElementById("inpObservacoes").value;
   await db.collection("territorios").doc(selecionado).update({ observacoes: obs });
@@ -293,16 +505,58 @@ async function salvarObservacoes() {
 function centroide(poligono) {
   let latSum = 0, lngSum = 0;
   const pontos = poligono.slice(0, -1); // ignora ponto de fechamento repetido
-  pontos.forEach((p) => { latSum += p.lat; lngSum += p.lng; });
+  pontos.forEach(([lng, lat]) => { latSum += lat; lngSum += lng; });
   return [latSum / pontos.length, lngSum / pontos.length];
 }
 
 function abrirNoMaps() {
   const t = territorios[selecionado];
-  if (!t || !t.poligono) return;
-  const [lat, lng] = centroide(t.poligono);
+  if (!t) return;
+
+  let lat, lng;
+  if (t.pontoReferencia) {
+    lat = t.pontoReferencia.lat;
+    lng = t.pontoReferencia.lng;
+  } else if (t.poligono) {
+    [lat, lng] = centroide(t.poligono);
+  } else {
+    return;
+  }
+
   const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
   window.open(url, "_blank");
+}
+
+function atualizarMarcadorReferencia() {
+  if (pontoMarkerLayer) {
+    map.removeLayer(pontoMarkerLayer);
+    pontoMarkerLayer = null;
+  }
+  const t = territorios[selecionado];
+  if (t && t.pontoReferencia) {
+    pontoMarkerLayer = L.marker([t.pontoReferencia.lat, t.pontoReferencia.lng], {
+      title: "Coordenada de referência para rota"
+    }).addTo(map);
+  }
+}
+
+function iniciarMarcacaoPonto() {
+  if (!selecionado) return;
+  modoMarcarPonto = true;
+  alert('Modo de marcação ativado: clique em qualquer ponto do mapa (dentro do território, num endereço específico, etc.) para salvar como coordenada de referência.');
+
+  const handler = async (e) => {
+    if (!modoMarcarPonto) return;
+    modoMarcarPonto = false;
+    const ponto = { lat: e.latlng.lat, lng: e.latlng.lng };
+    await db.collection("territorios").doc(selecionado).update({ pontoReferencia: ponto });
+  };
+  map.once("click", handler);
+}
+
+async function removerPontoReferencia() {
+  if (!selecionado) return;
+  await db.collection("territorios").doc(selecionado).update({ pontoReferencia: null });
 }
 
 // ---------- EDITAR CONTORNO ----------
@@ -328,7 +582,7 @@ function entrarModoEdicao() {
 
   map.on(L.Draw.Event.EDITED, async () => {
     const latlngs = editable.getLatLngs()[0];
-    const anel = latlngs.map((p) => ({ lat: p.lat, lng: p.lng }));
+    const anel = latlngs.map((p) => [p.lng, p.lat]);
     anel.push(anel[0]); // fecha o anel
     await db.collection("territorios").doc(selecionado).update({ poligono: anel });
     sairModoEdicao();
@@ -360,13 +614,36 @@ function ligarEventos() {
     filtro.status = e.target.value;
     renderTudo();
   });
+  document.getElementById("filterPublicador").addEventListener("change", (e) => {
+    filtro.publicadorId = e.target.value;
+    renderTudo();
+  });
+  document.getElementById("filterCongregacao").addEventListener("change", (e) => {
+    filtro.congregacaoId = e.target.value;
+    popularSelectGrupos(); // reescopa os grupos visíveis pra congregação escolhida
+    renderTudo();
+  });
+  document.getElementById("btnAddCongregacao").addEventListener("click", cadastrarCongregacao);
 
   document.getElementById("closeDetail").addEventListener("click", fecharDetalhe);
+  document.getElementById("detailCongregacaoSelect").addEventListener("change", salvarCongregacao);
   document.getElementById("detailGrupoSelect").addEventListener("change", salvarGrupo);
+  document.getElementById("detailPublicadorSelect").addEventListener("change", salvarPublicador);
+  document.getElementById("btnAddPublicador").addEventListener("click", cadastrarPublicador);
+  document.getElementById("inpNovoPublicador").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") cadastrarPublicador();
+  });
   document.getElementById("btnSalvarObs").addEventListener("click", salvarObservacoes);
   document.getElementById("btnOpenMaps").addEventListener("click", abrirNoMaps);
+  document.getElementById("btnMarcarPonto").addEventListener("click", iniciarMarcacaoPonto);
+  document.getElementById("btnRemoverPonto").addEventListener("click", removerPontoReferencia);
   document.getElementById("btnIniciar").addEventListener("click", marcarIniciado);
   document.getElementById("btnConcluir").addEventListener("click", marcarConcluido);
   document.getElementById("btnLiberar").addEventListener("click", liberarTerritorio);
   document.getElementById("btnEditarPoligono").addEventListener("click", entrarModoEdicao);
+
+  document.getElementById("btnSelecionarTodos").addEventListener("click", selecionarTodosFiltrados);
+  document.getElementById("btnLimparSelecao").addEventListener("click", limparSelecao);
+  document.getElementById("btnAplicarGrupoLote").addEventListener("click", aplicarGrupoEmLote);
+  document.getElementById("btnAplicarPublicadorLote").addEventListener("click", aplicarPublicadorEmLote);
 }

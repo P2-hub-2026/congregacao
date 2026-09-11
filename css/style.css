@@ -35,6 +35,17 @@ html,body{height:100%;margin:0;background:var(--paper);color:var(--ink);}
 .stat-disponivel b{color:#9ee0b4;}
 .stat-iniciado b{color:#f3c877;}
 .stat-concluido b{color:#9cc3ec;}
+.stat-atrasado b{color:#f4a3a3;}
+
+.select-congregacao{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.35);color:#fff;
+  padding:6px 10px;border-radius:8px;font-size:.82rem;
+}
+.select-congregacao option{color:#16262a;}
+
+.territory-list li.atrasado{background:#fdecec;}
+.li-warn{font-size:.85rem;}
+
 
 .btn-ghost{
   background:transparent;
@@ -66,7 +77,20 @@ html,body{height:100%;margin:0;background:var(--paper);color:var(--ink);}
 }
 .field-label{font-size:.72rem;text-transform:none;color:#6b7a78;margin-top:2px;}
 
+.btn-select-all{border:1px dashed var(--line);color:#4a5654;font-size:.78rem;padding:6px;}
+
+.bulk-bar{
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  padding:10px 12px;background:var(--concluido-bg);border-bottom:1px solid var(--line);
+  font-size:.78rem;
+}
+.bulk-bar.hidden{display:none;}
+.bulk-bar select{flex:1;min-width:110px;padding:5px 7px;border-radius:6px;border:1px solid var(--line);font-size:.78rem;}
+.bulk-bar .btn-action, .bulk-bar .btn-ghost{width:auto;padding:5px 10px;font-size:.78rem;color:var(--brand);border-color:var(--brand);}
+
 .territory-list{list-style:none;margin:0;padding:6px;overflow-y:auto;flex:1;}
+.territory-list li input[type="checkbox"]{margin-right:2px;}
+
 .territory-list li{
   display:flex;align-items:center;gap:8px;
   padding:8px 10px;border-radius:8px;cursor:pointer;font-size:.85rem;
@@ -107,6 +131,9 @@ html,body{height:100%;margin:0;background:var(--paper);color:var(--ink);}
 .detail-block select, .detail-block textarea{
   width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:.85rem;font-family:inherit;
 }
+.add-publicador-row{display:flex;gap:6px;margin-top:6px;}
+.add-publicador-row input{flex:1;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:.8rem;}
+.btn-add-pub{padding:5px 12px;color:var(--brand);border-color:var(--brand);}
 
 .btn-primary{
   width:100%;padding:10px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;

@@ -80,8 +80,11 @@ async function rodarSeed() {
 
     batch.set(ref, {
       codigo,
+      congregacaoId: null,
       grupoId: null,
+      publicadorId: null,
       poligono: gerarPoligonoGrade(i - 1),
+      pontoReferencia: null,
       status: "disponivel",
       responsavelInicio: null,
       dataInicio: null,

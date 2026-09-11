@@ -21,11 +21,18 @@
     <span class="brand-mark">◈</span>
     <span class="brand-name">Territórios</span>
   </div>
+
+  <select id="filterCongregacao" class="select-congregacao">
+    <option value="">Todas as congregações</option>
+  </select>
+  <button id="btnAddCongregacao" class="btn-ghost" title="Cadastrar nova congregação">+ Congregação</button>
+
   <div class="topbar-stats" id="topbarStats">
     <span class="stat"><b id="statTotal">0</b> total</span>
     <span class="stat stat-disponivel"><b id="statDisponivel">0</b> disponíveis</span>
     <span class="stat stat-iniciado"><b id="statIniciado">0</b> em campo</span>
     <span class="stat stat-concluido"><b id="statConcluido">0</b> concluídos</span>
+    <span class="stat stat-atrasado" title="Disponíveis há mais de 90 dias sem trabalhar"><b id="statAtrasado">0</b> atrasados</span>
   </div>
   <button id="btnImportGeoJSON" class="btn-ghost" title="Importar polígonos reais de data/territorios-import.geojson">Importar GeoJSON</button>
   <button id="btnSeed" class="btn-ghost" title="Gerar territórios placeholder em grade (só se ainda não tiver nenhum)">Gerar placeholders</button>
@@ -42,6 +49,11 @@
         <option value="">Todos os grupos</option>
       </select>
 
+      <label class="field-label">Publicador</label>
+      <select id="filterPublicador">
+        <option value="">Todos os publicadores</option>
+      </select>
+
       <label class="field-label">Fase</label>
       <select id="filterStatus">
         <option value="">Todas as fases</option>
@@ -49,6 +61,21 @@
         <option value="iniciado">Iniciado</option>
         <option value="concluido">Concluído</option>
       </select>
+
+      <button id="btnSelecionarTodos" class="btn-ghost btn-select-all">Selecionar todos os filtrados</button>
+    </div>
+
+    <div id="bulkBar" class="bulk-bar hidden">
+      <span id="bulkCount">0 selecionados</span>
+      <select id="bulkGrupoSelect">
+        <option value="">Sem grupo</option>
+      </select>
+      <button id="btnAplicarGrupoLote" class="btn-action">Aplicar grupo</button>
+      <select id="bulkPublicadorSelect">
+        <option value="">Sem publicador</option>
+      </select>
+      <button id="btnAplicarPublicadorLote" class="btn-action">Aplicar publicador</button>
+      <button id="btnLimparSelecao" class="btn-ghost">Limpar</button>
     </div>
 
     <ul id="territoryList" class="territory-list"></ul>
@@ -64,12 +91,29 @@
     <span id="detailStatusBadge" class="badge">—</span>
 
     <div class="detail-block">
+      <label class="field-label">Congregação</label>
+      <select id="detailCongregacaoSelect"></select>
+    </div>
+
+    <div class="detail-block">
       <label class="field-label">Grupo</label>
       <select id="detailGrupoSelect"></select>
     </div>
 
     <div class="detail-block">
-      <button id="btnOpenMaps" class="btn-primary">🗺️ Abrir no Maps</button>
+      <label class="field-label">Publicador designado</label>
+      <select id="detailPublicadorSelect"></select>
+      <div class="add-publicador-row">
+        <input type="text" id="inpNovoPublicador" placeholder="Cadastrar novo nome…" />
+        <button id="btnAddPublicador" class="btn-ghost btn-add-pub">+</button>
+      </div>
+    </div>
+
+    <div class="detail-block">
+      <button id="btnOpenMaps" class="btn-primary">🗺️ Traçar rota</button>
+      <button id="btnMarcarPonto" class="btn-ghost">📍 Marcar coordenada no mapa</button>
+      <button id="btnRemoverPonto" class="btn-ghost">✕ Remover coordenada marcada</button>
+      <p class="hint" id="pontoRefInfo">Nenhuma coordenada marcada ainda — a rota vai até o centro do território.</p>
     </div>
 
     <div class="detail-block phase-actions">

@@ -7,13 +7,13 @@
 //    copie o objeto firebaseConfig e cole abaixo.
 // ============================================================
 
-  const firebaseConfig = {
-  apiKey: "AIzaSyCBzYBFy8BhmX4dIUUCCnVjuvMxdU1IMZE",
-  authDomain: "mapas-jardins.firebaseapp.com",
-  projectId: "mapas-jardins",
-  storageBucket: "mapas-jardins.firebasestorage.app",
-  messagingSenderId: "542540186243",
-  appId: "1:542540186243:web:f5f7d2f80249012f4fd1b6"
+const firebaseConfig = {
+  apiKey: "COLE_AQUI",
+  authDomain: "SEU-PROJETO.firebaseapp.com",
+  projectId: "SEU-PROJETO",
+  storageBucket: "SEU-PROJETO.appspot.com",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI"
 };
 
 firebase.initializeApp(firebaseConfig);
