@@ -14,8 +14,8 @@ const TOTAL_TERRITORIOS = 200;
 const COLUNAS = 20;
 
 // Ponto base — TROQUE pelas coordenadas do centro da sua cidade/congregação
-const BASE_LAT = -23.5505;
-const BASE_LNG = -46.6333;
+const SEED_BASE_LAT = -23.5505;
+const SEED_BASE_LNG = -46.6333;
 
 const CELL = 0.0035;   // tamanho de cada território (graus)
 const GAP  = 0.0006;   // espaço entre territórios
@@ -24,8 +24,8 @@ function gerarPoligonoGrade(index) {
   const col = index % COLUNAS;
   const row = Math.floor(index / COLUNAS);
 
-  const lat0 = BASE_LAT + row * (CELL + GAP);
-  const lng0 = BASE_LNG + col * (CELL + GAP);
+  const lat0 = SEED_BASE_LAT + row * (CELL + GAP);
+  const lng0 = SEED_BASE_LNG + col * (CELL + GAP);
   const lat1 = lat0 + CELL;
   const lng1 = lng0 + CELL;
 
