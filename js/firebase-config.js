@@ -8,12 +8,12 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "COLE_AQUI",
-  authDomain: "SEU-PROJETO.firebaseapp.com",
-  projectId: "SEU-PROJETO",
-  storageBucket: "SEU-PROJETO.appspot.com",
-  messagingSenderId: "COLE_AQUI",
-  appId: "COLE_AQUI"
+  apiKey: "AIzaSyB-xxxxxxxxxxxxxxx",
+  authDomain: "gestao-territorios-xxx.firebaseapp.com",
+  projectId: "gestao-territorios-xxx",
+  storageBucket: "gestao-territorios-xxx.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdefg12345"
 };
 
 const firebaseIsConfigured = !Object.values(firebaseConfig).some((v) =>
